@@ -1,30 +1,33 @@
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
+import 'addExpense_screen.dart';
 
-class ExpenseListScreen extends StatelessWidget {
+class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Sample data using List<Expense>
-    final List<Expense> expenses = [
-      Expense(
-        id: '1',
-        title: 'Monthly Shopping',
-        amount: 150000,
-        category: 'Food',
-        date: DateTime(2024, 9, 15),
-        description: 'Monthly groceries at the supermarket',
-      ),
-      Expense(
-        id: '2',
-        title: 'Motorbike Fuel',
-        amount: 50000,
-        category: 'Transportation',
-        date: DateTime(2024, 9, 14),
-        description: 'Fuel for daily commute',
-      ),
-      Expense(
+  State<ExpenseListScreen> createState() => _ExpenseListScreenState();
+}
+
+class _ExpenseListScreenState extends State<ExpenseListScreen> {
+  final List<Expense> expenses = [
+    Expense(
+      id: '1',
+      title: 'Monthly Shopping',
+      amount: 150000,
+      category: 'Food',
+      date: DateTime(2024, 9, 15),
+      description: 'Monthly groceries at the supermarket',
+    ),
+    Expense(
+      id: '2',
+      title: 'Motorbike Fuel',
+      amount: 50000,
+      category: 'Transportation',
+      date: DateTime(2024, 9, 14),
+      description: 'Fuel for daily commute',
+    ),
+          Expense(
         id: '3',
         title: 'Coffee at Cafe',
         amount: 25000,
@@ -72,19 +75,27 @@ class ExpenseListScreen extends StatelessWidget {
         date: DateTime(2024, 9, 10),
         description: 'Daily bus fare to campus',
       ),
-    ];
+  ];
 
+  void _addExpense(Expense expense) {
+    setState(() {
+      expenses.add(expense);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Expense List'),
+        title: const Text('Expense List'),
         backgroundColor: Colors.blue,
       ),
       body: Column(
         children: [
-          // Header with total expenses
+          // Header total
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.blue.shade50,
               border: Border(
@@ -102,7 +113,7 @@ class ExpenseListScreen extends StatelessWidget {
                 ),
                 Text(
                   _calculateTotal(expenses),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.blue,
@@ -111,63 +122,61 @@ class ExpenseListScreen extends StatelessWidget {
               ],
             ),
           ),
-          // ListView to display expense items
+          // ListView
           Expanded(
             child: ListView.builder(
-              padding: EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
               itemCount: expenses.length,
               itemBuilder: (context, index) {
                 final expense = expenses[index];
-                return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  elevation: 2,
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: _getCategoryColor(expense.category),
-                      child: Icon(
-                        _getCategoryIcon(expense.category),
-                        color: Colors.white,
-                        size: 20,
-                      ),
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                elevation: 2,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: _getCategoryColor(expense.category),
+                    child: Icon(
+                      _getCategoryIcon(expense.category),
+                      color: Colors.white,
+                      size: 20,
                     ),
-                    title: Text(
-                      expense.title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          expense.category,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
-                        Text(
-                          expense.formattedDate,
-                          style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: Text(
-                      expense.formattedAmount,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.red[600],
-                      ),
-                    ),
-                    onTap: () {
-                      _showExpenseDetails(context, expense);
-                    },
                   ),
-                );
+                  title: Text(
+                    expense.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        expense.category,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        expense.formattedDate,
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: Text(
+                    expense.formattedAmount,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.red[600],
+                    ),
+                  ),
+                  onTap: () => _showExpenseDetails(context, expense),
+                ),
+              );
               },
             ),
           ),
@@ -175,23 +184,21 @@ class ExpenseListScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Add expense feature coming soon!')),
+          showDialog(
+            context: context,
+            builder: (context) => AddExpenseScreen(onAdd: _addExpense),
           );
         },
-        backgroundColor: Colors.blue,
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  // Method to calculate total using fold()
   String _calculateTotal(List<Expense> expenses) {
     double total = expenses.fold(0, (sum, expense) => sum + expense.amount);
     return 'Rp ${total.toStringAsFixed(0)}';
   }
 
-  // Method to get color based on category
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
       case 'food':
@@ -209,7 +216,6 @@ class ExpenseListScreen extends StatelessWidget {
     }
   }
 
-  // Method to get icon based on category
   IconData _getCategoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'food':
@@ -227,7 +233,6 @@ class ExpenseListScreen extends StatelessWidget {
     }
   }
 
-  // Method to show expense details in a dialog
   void _showExpenseDetails(BuildContext context, Expense expense) {
     showDialog(
       context: context,
@@ -238,18 +243,18 @@ class ExpenseListScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Amount: ${expense.formattedAmount}'),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('Category: ${expense.category}'),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('Date: ${expense.formattedDate}'),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('Description: ${expense.description}'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close'),
+            child: const Text('Close'),
           ),
         ],
       ),
