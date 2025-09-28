@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pemrograman_mobile/screens/home_screen.dart';
+import 'package:pemrograman_mobile/screens/register_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -6,8 +8,11 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Login'), backgroundColor: Colors.blue),
-      body: Padding(
+      appBar: AppBar(
+        title: Text('Login'),
+        backgroundColor: Colors.blue,
+      ),
+      body: SingleChildScrollView( 
         padding: EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -24,7 +29,7 @@ class LoginScreen extends StatelessWidget {
             ),
             SizedBox(height: 32),
 
-            // Username Field
+            // Username
             TextField(
               decoration: InputDecoration(
                 labelText: 'Username',
@@ -34,7 +39,7 @@ class LoginScreen extends StatelessWidget {
             ),
             SizedBox(height: 16),
 
-            // Password Field
+            // Password
             TextField(
               obscureText: true,
               decoration: InputDecoration(
@@ -45,12 +50,15 @@ class LoginScreen extends StatelessWidget {
             ),
             SizedBox(height: 24),
 
-            // Login Button
+            // Tombol Login
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Handle login
+                    Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const HomeScreen()),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
@@ -64,14 +72,18 @@ class LoginScreen extends StatelessWidget {
             ),
             SizedBox(height: 16),
 
-            // Register Link
+            // Link Register
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text("Don't have an account? "),
                 TextButton(
                   onPressed: () {
-                    // Navigate to register
+                      // Navigasi ke RegisterScreen dengan push
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                    );
                   },
                   child: Text('Register'),
                 ),

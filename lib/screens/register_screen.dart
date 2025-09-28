@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pemrograman_mobile/screens/home_screen.dart';
 
 class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key});
@@ -7,7 +8,7 @@ class RegisterScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Register'), backgroundColor: Colors.blue),
-      body: Padding(
+       body: SingleChildScrollView( 
         padding: EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -81,7 +82,10 @@ class RegisterScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Handle register
+                  Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomeScreen()),
+                );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
@@ -93,6 +97,16 @@ class RegisterScreen extends StatelessWidget {
                 ),
               ),
             ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text(
+                "Back to Login",
+                style: TextStyle(color: Colors.blue),
+              ),
+            ),
+
             SizedBox(height: 16),
 
             // Login Link
@@ -102,7 +116,10 @@ class RegisterScreen extends StatelessWidget {
                 Text("Already have an account? "),
                 TextButton(
                   onPressed: () {
-                    // Navigate to login
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                    );
                   },
                   child: Text('Login'),
                 ),
