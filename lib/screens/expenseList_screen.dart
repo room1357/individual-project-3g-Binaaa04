@@ -6,7 +6,8 @@ import '../services/expense_manager.dart';
 
 
 class ExpenseListScreen extends StatefulWidget {
-  const ExpenseListScreen({super.key});
+  final List<String> categoryList;
+  const ExpenseListScreen({super.key, required this.categoryList});
 
   @override
   State<ExpenseListScreen> createState() => _ExpenseListScreenState();
@@ -195,7 +196,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         onPressed: () {
           showDialog(
             context: context,
-            builder: (context) => AddExpenseScreen(onAdd: _addExpense),
+            builder: (context) => AddExpenseScreen(onAdd: _addExpense, categories: widget.categoryList),
           );
         },
         child: const Icon(Icons.add),
@@ -256,6 +257,7 @@ void _showExpenseDetails(BuildContext context, int index) {
               context: context,
               builder: (_) => EditExpenseScreen(
                 expense: expense,
+                categories: widget.categoryList,
                 onEdit: (updated) {
                   setState(() {
                     expenses[index] = updated; 

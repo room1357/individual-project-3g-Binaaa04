@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
+import 'package:pemrograman_mobile/screens/category_screen.dart';
 
 class EditExpenseScreen extends StatefulWidget {
   final Function(Expense) onEdit;
   final Expense expense;
+    final List<String> categories;
 
-  const EditExpenseScreen({super.key, required this.onEdit, required this.expense});
+  const EditExpenseScreen({super.key, required this.onEdit, required this.expense,required this.categories});
 
   @override
   State<EditExpenseScreen> createState() => _EditExpenseScreenState();
@@ -22,13 +24,15 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
     _titleController = TextEditingController(text: widget.expense.title);
     _amountController = TextEditingController(text: widget.expense.amount.toString());
     _descController = TextEditingController(text: widget.expense.description);
+    _selectedCategory = widget.expense.category; 
+    _selectedDate = widget.expense.date; 
   }
   void editData(){
 
   }
+    late String _selectedCategory;
+    late DateTime _selectedDate;
 
-  String _selectedCategory = 'Food';
-  DateTime _selectedDate = DateTime.now();
 
   void _pickDate() async {
     final picked = await showDatePicker(
@@ -76,17 +80,51 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
               keyboardType: TextInputType.number,
             ),
             DropdownButton<String>(
-              value: _selectedCategory,
-              items: ["Food", "Transport", "Utilities", "Entertainment", "Education"]
-                  .map((cat) => DropdownMenuItem(
-                        value: cat,
-                        child: Text(cat),
-                      ))
-                  .toList(),
+              value: widget.categories.contains(_selectedCategory)
+                  ? _selectedCategory
+                  : null,
+              hint: const Text('Pilih Kategori'), // teks default kalau value null
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('Pilih Kategori', style: TextStyle(color: Colors.grey)),
+                ),
+                ...widget.categories.toSet().map(
+                  (cat) => DropdownMenuItem<String>(
+                    value: cat,
+                    child: Text(cat),
+                  ),
+                ),
+                const DropdownMenuItem<String>(
+                  value: '__add_new__',
+                  child: Text('+ Tambah Kategori', style: TextStyle(color: Colors.blue)),
+                ),
+              ],
               onChanged: (value) {
-                setState(() {
-                  _selectedCategory = value!;
-                });
+                if (value == '__add_new__') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CategoryScreen(existingCategories: widget.categories),
+                    ),
+                  ).then((result) {
+                    if (result != null) {
+                      setState(() {
+                        widget.categories.clear();
+                        widget.categories.addAll(result.toSet()); // hapus duplikat
+                        if (!widget.categories.contains(_selectedCategory)) {
+                          _selectedCategory = widget.categories.first;
+                        }
+                      });
+                    }
+                  });
+                } else {
+                  setState(() {
+                    if (value != null) {
+                      _selectedCategory = value;
+                    }
+                  });
+                }
               },
             ),
             TextField(
