@@ -3,6 +3,7 @@ import '../models/expense.dart';
 import 'addExpense_screen.dart';
 import 'editExpense_screen.dart';
 import '../services/expense_manager.dart'; 
+import 'statistics_screen.dart';
 
 
 class ExpenseListScreen extends StatefulWidget {
@@ -99,6 +100,20 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       appBar: AppBar(
         title: const Text('Expense List'),
         backgroundColor: Colors.blue,
+          actions: [
+    IconButton(
+      icon: const Icon(Icons.bar_chart),
+      tooltip: 'Graph your expense',
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StatisticsScreen(expenses: expenses),
+          ),
+        );
+      },
+    )
+  ],
       ),
       body: Column(
         children: [
