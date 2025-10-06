@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import 'addExpense_screen.dart';
+import 'editExpense_screen.dart';
+import '../services/expense_manager.dart'; 
+
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
@@ -82,6 +85,12 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       expenses.add(expense);
     });
   }
+
+  void _editExpense(int index, Expense updatedExpense) {
+  setState(() {
+    ExpenseManager.updateExpense(index, updatedExpense);
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +183,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       color: Colors.red[600],
                     ),
                   ),
-                  onTap: () => _showExpenseDetails(context, expense),
+                  onTap: () => _showExpenseDetails(context, index)
                 ),
               );
               },
@@ -233,31 +242,33 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     }
   }
 
-  void _showExpenseDetails(BuildContext context, Expense expense) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(expense.title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Amount: ${expense.formattedAmount}'),
-            const SizedBox(height: 8),
-            Text('Category: ${expense.category}'),
-            const SizedBox(height: 8),
-            Text('Date: ${expense.formattedDate}'),
-            const SizedBox(height: 8),
-            Text('Description: ${expense.description}'),
-          ],
+void _showExpenseDetails(BuildContext context, int index) {
+  final expense = expenses[index];
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(expense.title),
+      actions: [
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context); // tutup dialog
+            showDialog(
+              context: context,
+              builder: (_) => EditExpenseScreen(
+                expense: expense,
+                onEdit: (updated) {
+                  setState(() {
+                    expenses[index] = updated; 
+                    _editExpense(index, updated);
+                  });
+                },
+              ),
+            );
+          },
+          child: const Text("Edit"),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 }

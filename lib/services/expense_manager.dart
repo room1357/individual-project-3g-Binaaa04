@@ -3,7 +3,7 @@ import '../models/expense.dart';
 class ExpenseManager {
   static List<Expense> expenses = [/* data expenses */];
 
-  // 1. Mendapatkan total pengeluaran per kategori
+  // Total per kategori
   static Map<String, double> getTotalByCategory(List<Expense> expenses) {
     Map<String, double> result = {};
     for (var expense in expenses) {
@@ -12,20 +12,20 @@ class ExpenseManager {
     return result;
   }
 
-  // 2. Mendapatkan pengeluaran tertinggi
+  // Pengeluaran paling besar
   static Expense? getHighestExpense(List<Expense> expenses) {
     if (expenses.isEmpty) return null;
     return expenses.reduce((a, b) => a.amount > b.amount ? a : b);
   }
 
-  // 3. Mendapatkan pengeluaran bulan tertentu
+  // Pengeluaran bulan tertentu
   static List<Expense> getExpensesByMonth(List<Expense> expenses, int month, int year) {
     return expenses.where((expense) => 
       expense.date.month == month && expense.date.year == year
     ).toList();
   }
 
-  // 4. Mencari pengeluaran berdasarkan kata kunci
+  // Cari pengeluaran
   static List<Expense> searchExpenses(List<Expense> expenses, String keyword) {
     String lowerKeyword = keyword.toLowerCase();
     return expenses.where((expense) =>
@@ -35,17 +35,37 @@ class ExpenseManager {
     ).toList();
   }
 
-  // 5. Mendapatkan rata-rata pengeluaran harian
+  // Rata-rata harian
   static double getAverageDaily(List<Expense> expenses) {
     if (expenses.isEmpty) return 0;
     
     double total = expenses.fold(0, (sum, expense) => sum + expense.amount);
-    
-    // Hitung jumlah hari unik
     Set<String> uniqueDays = expenses.map((expense) => 
       '${expense.date.year}-${expense.date.month}-${expense.date.day}'
     ).toSet();
     
     return total / uniqueDays.length;
+  }
+
+  // Tambah data
+  static void addExpense(Expense expense) {
+    expenses.add(expense);
+  }
+
+  // Hapus data
+  static void removeExpense(Expense expense) {
+    expenses.remove(expense);
+  }
+
+  // Ubah data
+  static void updateExpense(int index, Expense newExpense) {
+    if (index >= 0 && index < expenses.length) {
+      expenses[index] = newExpense;
+    }
+  }
+
+  // Total semua pengeluaran
+  static double getTotalExpense(List<Expense> expenses) {
+    return expenses.fold(0, (sum, expense) => sum + expense.amount);
   }
 }
