@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:pemrograman_mobile/screens/expenseList_screen.dart';
+import 'package:pemrograman_mobile/screens/advancedExpenseList_screen.dart';
 import 'login_screen.dart';
+import '../services/storage_service.dart';
+import '../models/expense.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,10 +12,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Variabel kategori, bisa kamu modifikasi sesuai kebutuhan
-  List<String> categoryList = ['Food', 'Transport', 'Bills'];
-
+  List<Expense> expenses = [];
+  List<Expense> filteredExpenses = [];
   @override
+    void initState() {
+    super.initState();
+    _loadExpensesAfterLogin();  
+  }
+    Future<void> _loadExpensesAfterLogin() async {
+    final data = await StorageService.instance.getExpenses();
+    setState(() {
+      expenses = data;
+      filteredExpenses = expenses;  // Pastikan data terfilter juga
+    });
+  }
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -117,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ExpenseListScreen(categoryList: categoryList),
+                        builder: (context) => AdvancedExpenseListScreen(),
                       ),
                     );
                   }),

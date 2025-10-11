@@ -1,56 +1,53 @@
 import 'package:flutter/material.dart';
 
 class CategoryScreen extends StatefulWidget {
-   final List<String> existingCategories;
-  const CategoryScreen({super.key,required this.existingCategories});
+  final List<String> existingCategories;
+
+  const CategoryScreen({Key? key, required this.existingCategories}) : super(key: key);
 
   @override
-  State<CategoryScreen> createState() => _CategoryScreenState();
+  _CategoryScreenState createState() => _CategoryScreenState();
 }
 
 class _CategoryScreenState extends State<CategoryScreen> {
   late List<String> categories;
-    final TextEditingController _controller = TextEditingController();
-  // List buat simpan kategori
-   @override
+
+  @override
   void initState() {
     super.initState();
     categories = List.from(widget.existingCategories);
+
+    // 🔥 Langsung tampilkan form tambah kategori setelah layar terbuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showAddCategoryDialog();
+    });
   }
 
-  // Tambah kategori
-  void _addCategory(String name) {
-    final newCategory = _controller.text.trim();
-    if (newCategory.isNotEmpty && !categories.contains(newCategory)) {
-      setState(() {
-        categories.add(newCategory);
-        _controller.clear();
-      });
-    }
-  }
-
-  // Tampilkan dialog untuk input kategori baru
+  // Menampilkan dialog tambah kategori
   void _showAddCategoryDialog() {
-    String newCategory = '';
+    final TextEditingController _controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Add New Category'),
         content: TextField(
-          onChanged: (value) => newCategory = value,
+          controller: _controller,
           decoration: InputDecoration(hintText: 'Category Name'),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context), // tutup dialog
+            onPressed: () => Navigator.pop(context), // Tutup dialog
             child: Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              if (newCategory.trim().isNotEmpty) {
-                _addCategory(newCategory.trim());
+              final newCategory = _controller.text.trim();
+              if (newCategory.isNotEmpty) {
+                setState(() {
+                  categories.add(newCategory);
+                });
+                Navigator.pop(context); // Tutup dialog
               }
-              Navigator.pop(context,categories);
             },
             child: Text('Save'),
           ),
@@ -59,7 +56,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
     );
   }
 
-  // Hapus kategori
   void _deleteCategory(int index) {
     setState(() {
       categories.removeAt(index);
@@ -69,13 +65,14 @@ class _CategoryScreenState extends State<CategoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Category")),
+      appBar: AppBar(title: Text('Categories')),
       body: categories.isEmpty
-          ? Center(child: Text("Belum ada kategori"))
+          ? Center(child: Text('No categories available.'))
           : ListView.builder(
               itemCount: categories.length,
               itemBuilder: (context, index) => ListTile(
                 title: Text(categories[index]),
+                onTap: () => Navigator.pop(context, categories[index]),
                 trailing: IconButton(
                   icon: Icon(Icons.delete),
                   onPressed: () => _deleteCategory(index),
