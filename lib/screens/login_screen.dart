@@ -9,8 +9,8 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Login'),
-        backgroundColor: Colors.blue,
+        title: Text('Login',style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.blueGrey,
       ),
       body: SingleChildScrollView( 
         padding: EdgeInsets.all(16.0),
@@ -22,7 +22,7 @@ class LoginScreen extends StatelessWidget {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.blue,
+                color: Colors.blueGrey,
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.person, size: 50, color: Colors.white),
@@ -61,12 +61,12 @@ class LoginScreen extends StatelessWidget {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: Colors.blueGrey,
                   padding: EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: Text(
                   'LOGIN',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,color: Colors.white),
                 ),
               ),
             ),
@@ -85,7 +85,7 @@ class LoginScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (context) => const RegisterScreen()),
                     );
                   },
-                  child: Text('Register'),
+                  child: Text('Register',style: TextStyle(color: Colors.blueGrey)),
                 ),
               ],
             ),

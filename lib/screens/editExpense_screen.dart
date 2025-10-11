@@ -111,7 +111,7 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
                 ),
                 TextButton(
                   onPressed: _pickDate,
-                  child: const Text("Pick Date"),
+                  child: const Text("Pick Date",style: TextStyle(color: Colors.blueGrey)),
                 ),
               ],
             ),
@@ -121,11 +121,11 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel"),
+          child: const Text("Cancel",style: TextStyle(color: Colors.blueGrey)),
         ),
         ElevatedButton(
           onPressed: _saveExpense,
-          child: const Text("Save"),
+          child: const Text("Save",style: TextStyle(color: Colors.blueGrey)),
         ),
       ],
     );

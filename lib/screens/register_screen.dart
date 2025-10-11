@@ -7,7 +7,7 @@ class RegisterScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Register'), backgroundColor: Colors.blue),
+      appBar: AppBar(title: Text('Register',style: TextStyle(color: Colors.white)), backgroundColor: Colors.blueGrey),
        body: SingleChildScrollView( 
         padding: EdgeInsets.all(16.0),
         child: Column(
@@ -18,7 +18,7 @@ class RegisterScreen extends StatelessWidget {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.blue,
+                color: Colors.blueGrey,
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.person_add, size: 50, color: Colors.white),
@@ -88,12 +88,12 @@ class RegisterScreen extends StatelessWidget {
                 );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: Colors.blueGrey,
                   padding: EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: Text(
                   'REGISTER',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,color: Colors.white),
                 ),
               ),
             ),
@@ -103,7 +103,7 @@ class RegisterScreen extends StatelessWidget {
               },
               child: Text(
                 "Back to Login",
-                style: TextStyle(color: Colors.blue),
+                style: TextStyle(color: Colors.blueGrey),
               ),
             ),
 
@@ -121,7 +121,7 @@ class RegisterScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (context) => const RegisterScreen()),
                     );
                   },
-                  child: Text('Login'),
+                  child: Text('Login',style: TextStyle(color: Colors.blueGrey)),
                 ),
               ],
             ),
