@@ -84,7 +84,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               SizedBox(height: 20),
 
               ElevatedButton(
-                child: Text('Save'),
+                child: Text('Save',style: TextStyle(color: Colors.blueGrey)),
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
                     final newExpense = Expense(

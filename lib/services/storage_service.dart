@@ -1,81 +1,76 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:csv/csv.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/expense.dart';
 
 class StorageService {
+  // Singleton pattern
   static final StorageService instance = StorageService._privateConstructor();
-
   StorageService._privateConstructor();
 
-  // Simpan daftar expenses ke storage (bisa SharedPreferences atau database)
+  // Simpan data ke SharedPreferences
   Future<void> saveExpenses(List<Expense> expenses) async {
-    // Misal pake SharedPreferences
     final prefs = await SharedPreferences.getInstance();
-    List<String> expenseStrings = expenses.map((e) => json.encode(e.toJson())).toList();
+    List<String> expenseStrings =
+        expenses.map((e) => json.encode(e.toJson())).toList();
     await prefs.setStringList('expenses', expenseStrings);
   }
 
-  // Ambil daftar expenses dari storage
+
+  // Ambil data dari SharedPreferences
   Future<List<Expense>> getExpenses() async {
     final prefs = await SharedPreferences.getInstance();
     List<String>? expenseStrings = prefs.getStringList('expenses');
+
     if (expenseStrings != null) {
-      return expenseStrings.map((e) => Expense.fromJson(json.decode(e))).toList();
+      return expenseStrings
+          .map((e) => Expense.fromJson(json.decode(e)))
+          .toList();
     }
     return [];
   }
 
+  // Export ke CSV — dengan izin & folder Download
+  Future<void> exportExpensesToCSV(List<Expense> expenses, String filePath) async {
+    // Minta izin penyimpanan
+    final status = await Permission.storage.request();
+    if (!status.isGranted) {
+      print('❌ Storage permission denied');
+      return;
+    }
 
-  // static final StorageService instance = StorageService._init();
+    // Buat data CSV
+    List<List<String>> rows = [
+      ['Title', 'Category', 'Amount', 'Date', 'Description'], // Header
+      ...expenses.map((e) => [
+            e.title,
+            e.category,
+            e.amount.toString(),
+            e.formattedDate,
+            e.description,
+          ])
+    ];
 
-  // static Database? _database;
+    String csvData = const ListToCsvConverter().convert(rows);
 
-  // StorageService._init();
+    //Simpan ke folder Download (Android)
+    Directory? directory;
 
-  // Future<Database> get database async {
-  //   if (_database != null) return _database!;
-  //   _database = await _initDB('expenses.db');
-  //   return _database!;
-  // }
+    if (Platform.isAndroid) {
+      directory = Directory('/storage/emulated/0/Download');
+    } else {
+      // Untuk iOS atau desktop, simpan ke documents directory
+      directory = await getApplicationDocumentsDirectory();
+    }
 
-  // Future<Database> _initDB(String filePath) async {
-  //   final dbPath = await getDatabasesPath();
-  //   final path = join(dbPath, filePath);
-  //   return await openDatabase(path, version: 1, onCreate: _createDB);
-  // }
+    final String path = '${directory.path}/expenses.csv';
+    final File file = File(path);
 
-  // Future _createDB(Database db, int version) async {
-  //   await db.execute('''
-  //     CREATE TABLE expenses (
-  //       id TEXT PRIMARY KEY,
-  //       title TEXT NOT NULL,
-  //       amount REAL NOT NULL,
-  //       category TEXT NOT NULL,
-  //       date TEXT NOT NULL,
-  //       description TEXT
-  //     )
-  //   ''');
-  // }
+    await file.writeAsString(csvData);
 
-  // Future<void> insertExpense(Expense expense) async {
-  //   final db = await instance.database;
-  //   await db.insert(
-  //     'expenses',
-  //     expense.toMap(),
-  //     conflictAlgorithm: ConflictAlgorithm.replace,
-  //   );
-  //   print("Expense inserted: ${expense.title}");
-  // }
-
-  // Future<List<Expense>> getExpenses() async {
-  //   final db = await instance.database;
-  //   final result = await db.query('expenses', orderBy: 'date DESC');
-  //   return result.map((json) => Expense.fromMap(json)).toList();
-  // }
-
-  // Future close() async {
-  //   final db = await instance.database;
-  //   db.close();
-  // }
+    print('✅ CSV file saved at: $path');
+  }
 }
-

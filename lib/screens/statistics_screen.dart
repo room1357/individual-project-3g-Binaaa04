@@ -39,14 +39,16 @@ class StatisticsScreen extends StatelessWidget {
         child: ListView(
           children: [
             // ===== Summary Cards =====
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildSummaryCard('Total', formatCurrency(total)),
-                _buildSummaryCard('Average', formatCurrency(average)),
-                _buildSummaryCard('Items', '${expenses.length}'),
-              ],
-            ),
+          Wrap(
+            spacing: 12, // jarak antar kartu
+            runSpacing: 12, // jarak antar baris kalau pindah ke bawah
+            alignment: WrapAlignment.center,
+            children: [
+              _buildSummaryCard('Total', formatCurrency(total)),
+              _buildSummaryCard('Average', formatCurrency(average)),
+              _buildSummaryCard('Items', '${expenses.length}'),
+            ],
+          ),
             const SizedBox(height: 20),
 
             // ===== Pie Chart =====

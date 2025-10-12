@@ -5,7 +5,8 @@ import '../services/storage_service.dart';
 import '../models/expense.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String username;
+  const HomeScreen({super.key, required this.username});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -14,22 +15,32 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Expense> expenses = [];
   List<Expense> filteredExpenses = [];
+
   @override
-    void initState() {
+  void initState() {
     super.initState();
     _loadExpensesAfterLogin();  
   }
-    Future<void> _loadExpensesAfterLogin() async {
+
+  Future<void> _loadExpensesAfterLogin() async {
     final data = await StorageService.instance.getExpenses();
     setState(() {
       expenses = data;
       filteredExpenses = expenses;  // Pastikan data terfilter juga
     });
   }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home',style: TextStyle(color: Colors.white)),
+        title: Row(
+          children: [
+            const Text('Home', style: TextStyle(color: Colors.white)),
+            const Spacer(),
+            Text('Welcome, ${widget.username}', style: const TextStyle(color: Colors.white)),
+          ],
+        ),
         backgroundColor: Colors.blueGrey,
         actions: [
           IconButton(
@@ -99,12 +110,11 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
               onTap: () {
-              // LOGOUT
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
               },
             ),
           ],

@@ -6,7 +6,6 @@ import 'package:pemrograman_mobile/screens/category_screen.dart';
 import 'package:pemrograman_mobile/screens/editExpense_screen.dart';
 import 'package:pemrograman_mobile/screens/statistics_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/expense.dart';
 import '../services/storage_service.dart';
 
@@ -37,65 +36,51 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
     _loadExpenses();
   }
 
-  // ---------------------------
   // UTAMA: fungsi export CSV
-  // ---------------------------
-  Future<void> _exportToCSV() async {
-    try {
-      // 1) Request permission (Android)
-      if (Platform.isAndroid) {
-        PermissionStatus status = await Permission.storage.status;
-        if (!status.isGranted) {
-          status = await Permission.storage.request();
-          if (!status.isGranted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Storage permission denied. Export canceled.'),
-              ),
-            );
-            return;
-          }
-        }
-      }
-
-      // 2) Panggil StorageService untuk menulis CSV
-      await StorageService.instance.exportExpensesToCSV(filteredExpenses);
-
-      // 3) Tentukan expected path dan cek file
-      String expectedPath;
-      if (Platform.isAndroid) {
-        expectedPath = '/storage/emulated/0/Download/expenses.csv';
-      } else {
-        final dir = await getApplicationDocumentsDirectory();
-        expectedPath = '${dir.path}/expenses.csv';
-      }
-
-      final file = File(expectedPath);
-      final exists = await file.exists();
-
-      if (exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ Data exported to: $expectedPath')),
-        );
-      } else {
-        // File tidak ditemukan meski export telah dijalankan — beri info & log
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Export finished but file not found at expected location. Check permissions or app folder.',
-            ),
-          ),
-        );
-        // untuk debugging
-        print('Export finished but file not found at $expectedPath');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
-      print('Export failed: $e');
+Future<void> _exportToCSV() async {
+  try {
+    //  Minta izin
+    PermissionStatus status = await Permission.manageExternalStorage.request();
+    if (!status.isGranted) {
+      status = await Permission.storage.request();
     }
+
+    if (!status.isGranted) {
+        if (await Permission.manageExternalStorage.isPermanentlyDenied) {
+        openAppSettings(); // buka pengaturan biar user bisa aktifin manual
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Storage permission denied. Export canceled.')),
+      );
+      return;
+    }
+
+    // Buat direktori "Download/ExpensesApp"
+    final directory = Directory('/storage/emulated/0/Download/ExpensesApp');
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    // Panggil export service buat nulis CSV
+    final filePath = '${directory.path}/expenses.csv';
+
+    // Kalau kamu udah punya fungsi buat generate data CSV dari `StorageService`, panggil:
+    await StorageService.instance.exportExpensesToCSV(filteredExpenses, filePath);
+
+    // Kalau belum, bisa ganti sementara:
+    // await file.writeAsString("Tanggal,Kategori,Nominal\n20-10-2025,Food,25000\n");
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('✅ File exported to: $filePath')),
+    );
+
+    print('✅ File exported to: $filePath');
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Export failed: $e')),
+    );
+    print('Export failed: $e');
   }
+}
 
   Future<void> _loadExpenses() async {
     final data = await StorageService.instance.getExpenses();
