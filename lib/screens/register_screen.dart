@@ -1,129 +1,150 @@
 import 'package:flutter/material.dart';
-import 'package:pemrograman_mobile/screens/home_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:pemrograman_mobile/screens/login_screen.dart';
+import '../services/auth.dart';
 
-class RegisterScreen extends StatelessWidget {
+class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
+
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final fullnameController = TextEditingController();
+  final emailController = TextEditingController();
+  final usernameController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> registerUser() async {
+    final fullname = fullnameController.text.trim();
+    final email = emailController.text.trim();
+    final username = usernameController.text.trim();
+    final password = passwordController.text.trim();
+    final confirmPassword = confirmPasswordController.text.trim();
+
+    if ([fullname, email, username, password, confirmPassword].contains('')) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please fill in all fields')));
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Panggil provider Auth untuk register
+      final signup = await context.read<Auth>().registerUser(
+            fullname,
+            email,
+            username,
+            password,
+          );
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(signup)));
+
+      if (signup == 'Successful Registration') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    fullnameController.dispose();
+    emailController.dispose();
+    usernameController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Register',style: TextStyle(color: Colors.white)), backgroundColor: Colors.blueGrey),
-       body: SingleChildScrollView( 
-        padding: EdgeInsets.all(16.0),
+      appBar: AppBar(
+          title: const Text('Register'), backgroundColor: Colors.blueGrey),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.blueGrey,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.person_add, size: 50, color: Colors.white),
-            ),
-            SizedBox(height: 32),
-
-            // Full Name Field
+            const SizedBox(height: 32),
             TextField(
-              decoration: InputDecoration(
+              controller: fullnameController,
+              decoration: const InputDecoration(
                 labelText: 'Full Name',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
               ),
             ),
-            SizedBox(height: 16),
-
-            // Email Field
+            const SizedBox(height: 16),
             TextField(
-              decoration: InputDecoration(
+              controller: emailController,
+              decoration: const InputDecoration(
                 labelText: 'Email',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
               ),
             ),
-            SizedBox(height: 16),
-
-            // Username Field
+            const SizedBox(height: 16),
             TextField(
-              decoration: InputDecoration(
+              controller: usernameController,
+              decoration: const InputDecoration(
                 labelText: 'Username',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.account_circle),
               ),
             ),
-            SizedBox(height: 16),
-
-            // Password Field
+            const SizedBox(height: 16),
             TextField(
+              controller: passwordController,
               obscureText: true,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Password',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock),
               ),
             ),
-            SizedBox(height: 16),
-
-            // Confirm Password Field
+            const SizedBox(height: 16),
             TextField(
+              controller: confirmPasswordController,
               obscureText: true,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Confirm Password',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock_outline),
               ),
             ),
-            SizedBox(height: 24),
-
-            // Register Button
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomeScreen()),
-                );
-                },
+                onPressed: _isLoading ? null : registerUser,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueGrey,
-                  padding: EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: Text(
-                  'REGISTER',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,color: Colors.white),
-                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('REGISTER'),
               ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text(
-                "Back to Login",
-                style: TextStyle(color: Colors.blueGrey),
-              ),
-            ),
-
-            SizedBox(height: 16),
-
-            // Login Link
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text("Already have an account? "),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                    );
-                  },
-                  child: Text('Login',style: TextStyle(color: Colors.blueGrey)),
-                ),
-              ],
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Back to Login"),
             ),
           ],
         ),
