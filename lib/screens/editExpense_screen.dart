@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import '../models/expense.dart';
+import 'package:pemrograman_mobile/screens/advancedExpenseList_screen.dart';
+import 'package:pemrograman_mobile/screens/category_screen.dart';
+import '../services/database_service.dart';
 
 class EditExpenseScreen extends StatefulWidget {
-  final Function(Expense) onEdit; 
-  final Expense expense;
-  final List<String> categories;
+  final Function(ExpenseWithCategory) onEdit;
+  final ExpenseWithCategory expense;
 
   const EditExpenseScreen({
     super.key,
     required this.onEdit,
     required this.expense,
-    required this.categories,
   });
 
   @override
@@ -18,12 +18,15 @@ class EditExpenseScreen extends StatefulWidget {
 }
 
 class _EditExpenseScreenState extends State<EditExpenseScreen> {
+  final AppDb database = AppDb();
+
   late TextEditingController _titleController;
   late TextEditingController _amountController;
   late TextEditingController _descController;
-
   late String _selectedCategory;
   late DateTime _selectedDate;
+
+  List<String> categories = [];
 
   @override
   void initState() {
@@ -32,8 +35,22 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
     _amountController =
         TextEditingController(text: widget.expense.amount.toString());
     _descController = TextEditingController(text: widget.expense.description);
-    _selectedCategory = widget.expense.category;
+    _selectedCategory = widget.expense.categoryName;
     _selectedDate = widget.expense.date;
+
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final data = await database.select(database.kategory).get();
+    setState(() {
+      categories = data.map((c) => c.categoryName).toList();
+
+      // Jika kategori expense yang diedit tidak ada (misal dihapus), tambahkan sementara
+      if (!categories.contains(_selectedCategory)) {
+        categories.insert(0, _selectedCategory);
+      }
+    });
   }
 
   void _pickDate() async {
@@ -43,25 +60,45 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-    if (picked != null) {
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  void _openCategoryScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CategoryScreen()),
+    );
+
+    if (result == true) {
+      // Refresh kategori jika ada penambahan
+      await _loadCategories();
       setState(() {
-        _selectedDate = picked;
+        _selectedCategory = categories.last; // pilih kategori terbaru
       });
     }
   }
 
-  void _saveExpense() {
-    final updatedExpense = Expense(
-      id: widget.expense.id, // tetap pakai id lama
-      title: _titleController.text,
-      amount: double.tryParse(_amountController.text) ?? 0,
-      category: _selectedCategory,
+  Future<void> _saveExpense() async {
+    if (_titleController.text.isEmpty ||
+        _amountController.text.isEmpty ||
+        _selectedCategory.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete all fields')),
+      );
+      return;
+    }
+
+    final updatedExpense = ExpenseWithCategory(
+      id: widget.expense.id,
+      title: _titleController.text.trim(),
+      amount: double.tryParse(_amountController.text.trim()) ?? 0,
       date: _selectedDate,
-      description: _descController.text,
+      description: _descController.text.trim(),
+      categoryName: _selectedCategory,
     );
 
     widget.onEdit(updatedExpense);
-    Navigator.pop(context);
+    Navigator.pop(context, true); // pop true supaya AdvancedExpenseList refresh
   }
 
   @override
@@ -76,27 +113,37 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
               controller: _titleController,
               decoration: const InputDecoration(labelText: "Title"),
             ),
+            const SizedBox(height: 10),
             TextField(
               controller: _amountController,
               decoration: const InputDecoration(labelText: "Amount"),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              value: _selectedCategory,
-              decoration: const InputDecoration(labelText: "Category"),
-              items: widget.categories
-                  .map((cat) => DropdownMenuItem<String>(
-                        value: cat,
-                        child: Text(cat),
-                      ))
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _selectedCategory = value);
-                }
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCategory,
+                    decoration: const InputDecoration(labelText: "Category"),
+                    items: categories
+                        .map((cat) => DropdownMenuItem(
+                              value: cat,
+                              child: Text(cat),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) setState(() => _selectedCategory = value);
+                    },
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: _openCategoryScreen,
+                ),
+              ],
             ),
+            const SizedBox(height: 10),
             TextField(
               controller: _descController,
               decoration: const InputDecoration(labelText: "Description"),
@@ -111,7 +158,10 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
                 ),
                 TextButton(
                   onPressed: _pickDate,
-                  child: const Text("Pick Date",style: TextStyle(color: Colors.blueGrey)),
+                  child: const Text(
+                    "Pick Date",
+                    style: TextStyle(color: Colors.blueGrey),
+                  ),
                 ),
               ],
             ),
@@ -121,11 +171,12 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel",style: TextStyle(color: Colors.blueGrey)),
+          child: const Text("Cancel", style: TextStyle(color: Colors.blueGrey)),
         ),
         ElevatedButton(
           onPressed: _saveExpense,
-          child: const Text("Save",style: TextStyle(color: Colors.blueGrey)),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
+          child: const Text("Save", style: TextStyle(color: Colors.white)),
         ),
       ],
     );

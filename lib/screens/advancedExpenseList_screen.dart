@@ -1,279 +1,355 @@
-import 'dart:io';
-import 'package:calendar_appbar/calendar_appbar.dart';
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:calendar_appbar/calendar_appbar.dart';
 import 'package:pemrograman_mobile/screens/addExpense_screen.dart';
 import 'package:pemrograman_mobile/screens/category_screen.dart';
 import 'package:pemrograman_mobile/screens/editExpense_screen.dart';
 import 'package:pemrograman_mobile/screens/statistics_screen.dart';
-import 'package:permission_handler/permission_handler.dart';
-import '../models/expense.dart';
-import '../services/storage_service.dart';
+import '../services/database_service.dart';
+import '../services/auth.dart';
 
 class AdvancedExpenseListScreen extends StatefulWidget {
+  const AdvancedExpenseListScreen({Key? key}) : super(key: key);
+
   @override
-  _AdvancedExpenseListScreenState createState() =>
+  State<AdvancedExpenseListScreen> createState() =>
       _AdvancedExpenseListScreenState();
 }
 
 class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
-  List<Expense> expenses = [];
-  List<Expense> filteredExpenses = [];
+  final AppDb database = AppDb();
+
+  List<ExpenseWithCategory> expenses = [];
+  List<ExpenseWithCategory> filteredExpenses = [];
+  List<Kategori> categories = [];
   String selectedCategory = 'All';
   TextEditingController searchController = TextEditingController();
+  DateTime selectedDate = DateTime.now();
+  int _selectedIndex = 1;
 
-  List<String> categories = [
-    'All',
-    'Food',
-    'Transportation',
-    'Utility',
-    'Entertainment',
-    'Self Care',
-  ];
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadExpenses();
+    searchController.addListener(_filterExpenses);
+
+    _initializeDefaultCategories().then((_) => _loadData());
   }
 
-  // UTAMA: fungsi export CSV
-Future<void> _exportToCSV() async {
-  try {
-    //  Minta izin
-    PermissionStatus status = await Permission.manageExternalStorage.request();
-    if (!status.isGranted) {
-      status = await Permission.storage.request();
-    }
+  @override
+  void dispose() {
+    searchController.removeListener(_filterExpenses);
+    searchController.dispose();
+    super.dispose();
+  }
 
-    if (!status.isGranted) {
-        if (await Permission.manageExternalStorage.isPermanentlyDenied) {
-        openAppSettings(); // buka pengaturan biar user bisa aktifin manual
+  Future<void> _initializeDefaultCategories() async {
+    final data = await database.select(database.kategory).get();
+    if (data.isEmpty) {
+      final defaultCategories = [
+        'Food',
+        'Transportation',
+        'Utility',
+        'Entertainment',
+        'Self Care'
+      ];
+      final now = DateTime.now();
+      for (var name in defaultCategories) {
+        await database.into(database.kategory).insert(
+          KategoryCompanion.insert(
+            categoryName: name,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Storage permission denied. Export canceled.')),
-      );
+    }
+  }
+
+  Future<void> _loadData() async {
+    setState(() => isLoading = true);
+
+    final auth = Provider.of<Auth>(context, listen: false);
+    final user = auth.currentUser;
+    if (user == null) {
+      setState(() => isLoading = false);
       return;
     }
 
-    // Buat direktori "Download/ExpensesApp"
-    final directory = Directory('/storage/emulated/0/Download/ExpensesApp');
-    if (!await directory.exists()) {
-      await directory.create(recursive: true);
-    }
-    // Panggil export service buat nulis CSV
-    final filePath = '${directory.path}/expenses.csv';
+    // Load categories terbaru
+    final cats = await database.select(database.kategory).get();
 
-    // Kalau kamu udah punya fungsi buat generate data CSV dari `StorageService`, panggil:
-    await StorageService.instance.exportExpensesToCSV(filteredExpenses, filePath);
+    // Load expenses (join category)
+    final query = database.select(database.expenseTable).join([
+      drift.leftOuterJoin(
+        database.kategory,
+        database.kategory.categoryId
+            .equalsExp(database.expenseTable.categoryId),
+      ),
+    ])..where(database.expenseTable.userId.equals(user.userId));
 
-    // Kalau belum, bisa ganti sementara:
-    // await file.writeAsString("Tanggal,Kategori,Nominal\n20-10-2025,Food,25000\n");
+    query.orderBy([
+      drift.OrderingTerm(
+        expression: database.expenseTable.date,
+        mode: drift.OrderingMode.desc,
+      )
+    ]);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('✅ File exported to: $filePath')),
-    );
+    final result = await query.get();
 
-    print('✅ File exported to: $filePath');
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Export failed: $e')),
-    );
-    print('Export failed: $e');
-  }
-}
+    final expensesWithCat = result.map((row) {
+      final exp = row.readTable(database.expenseTable);
+      final cat = row.readTableOrNull(database.kategory);
+      return ExpenseWithCategory(
+        id: exp.expenseId,
+        title: exp.title,
+        amount: exp.amount.toDouble(),
+        date: exp.date,
+        description: exp.description,
+        categoryName: cat?.categoryName ?? 'Uncategorized',
+      );
+    }).toList();
 
-  Future<void> _loadExpenses() async {
-    final data = await StorageService.instance.getExpenses();
     setState(() {
-      expenses = data;
-      filteredExpenses = expenses; // tampilkan semua pengeluaran
+      categories = cats;
+      expenses = expensesWithCat;
+
+      if (selectedCategory != 'All' &&
+          !categories.any((c) => c.categoryName == selectedCategory)) {
+        selectedCategory = 'All';
+      }
+
+      _filterExpenses();
+      isLoading = false;
     });
   }
 
-  void _openCategoryManager() async {
-    final updatedCategories = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CategoryScreen(existingCategories: categories),
+  void _filterExpenses() {
+    final query = searchController.text.trim().toLowerCase();
+    setState(() {
+      filteredExpenses = expenses.where((expense) {
+        final matchesSearch = query.isEmpty ||
+            expense.title.toLowerCase().contains(query) ||
+            expense.description.toLowerCase().contains(query);
+        final matchesCategory =
+            selectedCategory == 'All' || expense.categoryName == selectedCategory;
+        return matchesSearch && matchesCategory;
+      }).toList();
+    });
+  }
+
+  Future<void> _openEditExpense(ExpenseWithCategory e) async {
+    await showDialog(
+      context: context,
+      builder: (context) => EditExpenseScreen(
+        expense: e,
+        onEdit: (updatedExpense) async {
+          final cat = categories.firstWhere(
+            (c) => c.categoryName == updatedExpense.categoryName,
+            orElse: () => categories.first,
+          );
+          await database.update(database.expenseTable).replace(
+            expenseTableCompanion(
+              expenseId: drift.Value(e.id),
+              title: drift.Value(updatedExpense.title),
+              amount: drift.Value(updatedExpense.amount.toInt()),
+              categoryId: drift.Value(cat.categoryId),
+              date: drift.Value(updatedExpense.date),
+              description: drift.Value(updatedExpense.description),
+              createdAt: drift.Value(e.date),
+              updatedAt: drift.Value(DateTime.now()),
+              userId: drift.Value(
+                  Provider.of<Auth>(context, listen: false).currentUser!.userId),
+            ),
+          );
+          await _loadData();
+        },
       ),
     );
+  }
 
-    if (updatedCategories != null && updatedCategories is List<String>) {
-      setState(() {
-        categories = updatedCategories;
-      });
+  Future<void> _openCategoryManager() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CategoryScreen()),
+    );
+
+    // jika ada perubahan, reload kategori & expenses otomatis
+    if (result == true) {
+      await _loadData();
+    } else {
+      await _loadData();
     }
   }
 
-  // Mengupdate build untuk menghindari double Scaffold
+  void _onItemTapped(int index) {
+    setState(() => _selectedIndex = index);
+  }
+
+  Widget _buildBody() {
+    if (_selectedIndex == 0) {
+    return StatisticsScreen(expenses: filteredExpenses);
+
+    } else {
+      return SafeArea(
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 80),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    CalendarAppBar(
+                      onDateChanged: (date) => setState(() => selectedDate = date),
+                      firstDate: DateTime.now().subtract(const Duration(days: 140)),
+                      lastDate: DateTime.now(),
+                      selectedDate: selectedDate,
+                      locale: 'en',
+                      accent: Colors.blueGrey,
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: TextField(
+                        controller: searchController,
+                        decoration: const InputDecoration(
+                          hintText: 'Search your expense...',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Filter chips horizontal
+                    SizedBox(
+                      height: 60,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: FilterChip(
+                              label: const Text('All'),
+                              selected: selectedCategory == 'All',
+                              onSelected: (_) {
+                                setState(() {
+                                  selectedCategory = 'All';
+                                  _filterExpenses();
+                                });
+                              },
+                            ),
+                          ),
+                          ...categories.map((c) {
+                            return Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: FilterChip(
+                                label: Text(c.categoryName),
+                                selected: selectedCategory == c.categoryName,
+                                onSelected: (_) {
+                                  setState(() {
+                                    selectedCategory = c.categoryName;
+                                    _filterExpenses();
+                                  });
+                                },
+                              ),
+                            );
+                          }).toList(),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: ActionChip(
+                              avatar: const Icon(Icons.add),
+                              label: const Text('Add Category'),
+                              onPressed: _openCategoryManager,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    filteredExpenses.isEmpty
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text('No expenses found'),
+                            ),
+                          )
+                        : ListView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: filteredExpenses.length,
+                            itemBuilder: (context, index) {
+                              final e = filteredExpenses[index];
+                              return Card(
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 4),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: _getCategoryColor(e.categoryName),
+                                    child: Icon(_getCategoryIcon(e.categoryName),
+                                        color: Colors.white),
+                                  ),
+                                  title: Text(e.title),
+                                  subtitle:
+                                      Text('${e.categoryName} • ${_formatDate(e.date)}'),
+                                  trailing: Text(
+                                    _formatCurrency(e.amount),
+                                    style: TextStyle(
+                                        color: Colors.red[600],
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  onTap: () => _openEditExpense(e),
+                                ),
+                              );
+                            },
+                          ),
+                  ],
+                ),
+              ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blueGrey,
-        title: Text('Expense List', style: TextStyle(color: Colors.white)),
-        actions: [
-          IconButton(icon: const Icon(Icons.download), onPressed: _exportToCSV),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Calendar Widget
-          CalendarAppBar(
-            onDateChanged: (value) => print(value),
-            firstDate: DateTime.now().subtract(Duration(days: 140)),
-            lastDate: DateTime.now(),
-            selectedDate: DateTime.now(),
-            locale: 'en',
-            accent: Colors.blueGrey,
-          ),
-
-          // Search Bar
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: 'Search your expense...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) {
-                _filterExpenses();
-              },
-            ),
-          ),
-
-          // Category Filter & Stats
-          Expanded(
-            child: ListView(
-              children: [
-                // Filter Kategori dan tambah kategori
-                Container(
-                  height: 60,
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      ...categories.map(
-                        (category) => Padding(
-                          padding: EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(category),
-                            selected: selectedCategory == category,
-                            onSelected: (selected) {
-                              setState(() => selectedCategory = category);
-                              _filterExpenses();
-                            },
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: ActionChip(
-                          avatar: Icon(Icons.add),
-                          label: Text('Add Category'),
-                          onPressed: _openCategoryManager,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Stats (Total, Count, Average)
-                Container(
-                  padding: EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatCard(
-                        'Total',
-                        _calculateTotal(filteredExpenses),
-                      ),
-                      _buildStatCard(
-                        'Amount',
-                        '${filteredExpenses.length} item',
-                      ),
-                      _buildStatCard(
-                        'Average',
-                        _calculateAverage(filteredExpenses),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // List Expenses
-                if (filteredExpenses.isEmpty)
-                  Center(child: Text('No expenses found'))
-                else
-                  ...filteredExpenses.map(
-                    (expense) => Card(
-                      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: _getCategoryColor(expense.category),
-                          child: Icon(
-                            _getCategoryIcon(expense.category),
-                            color: Colors.white,
-                          ),
-                        ),
-                        title: Text(expense.title),
-                        subtitle: Text(
-                          '${expense.category} • ${expense.formattedDate}',
-                        ),
-                        trailing: Text(
-                          expense.formattedAmount,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red[600],
-                          ),
-                        ),
-                        onTap: () => _showExpenseDetails(context, expense),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      extendBody: true,
+      body: _buildBody(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final newExpense = await Navigator.push(
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AddExpenseScreen(categories: categories),
+              builder: (context) => const AddExpenseScreen(),
             ),
           );
-
-          if (newExpense != null && newExpense is Expense) {
-            setState(() {
-              expenses.add(newExpense);
-              _filterExpenses();
-            });
-            await StorageService.instance.saveExpenses(expenses);
+          if (result == true) {
+            await _loadData();
+          } else {
+            await _loadData();
           }
         },
         backgroundColor: Colors.blueGrey,
-        child: Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            IconButton(onPressed: () {}, icon: Icon(Icons.home)),
-            SizedBox(width: 20),
-            IconButton(
-              onPressed: () async {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => StatisticsScreen(expenses: expenses),
-              ),
-            );
-              },
-              icon: Icon(Icons.analytics),
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 6,
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart),
+              label: 'Statistics',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.list),
+              label: 'Expenses',
             ),
           ],
         ),
@@ -281,52 +357,9 @@ Future<void> _exportToCSV() async {
     );
   }
 
-  void _filterExpenses() {
-    setState(() {
-      filteredExpenses =
-          expenses.where((expense) {
-            bool matchesSearch =
-                searchController.text.isEmpty ||
-                expense.title.toLowerCase().contains(
-                  searchController.text.toLowerCase(),
-                ) ||
-                expense.description.toLowerCase().contains(
-                  searchController.text.toLowerCase(),
-                );
-
-            bool matchesCategory =
-                selectedCategory == 'All' ||
-                expense.category == selectedCategory;
-
-            return matchesSearch && matchesCategory;
-          }).toList();
-    });
-  }
-
-  Widget _buildStatCard(String label, String value) {
-    return Column(
-      children: [
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey)),
-        Text(
-          value,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
-  }
-
-  String _calculateTotal(List<Expense> expenses) {
-    double total = expenses.fold(0, (sum, expense) => sum + expense.amount);
-    return 'Rp ${total.toStringAsFixed(0)}';
-  }
-
-  String _calculateAverage(List<Expense> expenses) {
-    if (expenses.isEmpty) return 'Rp 0';
-    double average =
-        expenses.fold(0.0, (sum, expense) => sum + expense.amount) /
-        expenses.length;
-    return 'Rp ${average.toStringAsFixed(0)}';
-  }
+  String _formatCurrency(double amount) => 'Rp ${amount.toStringAsFixed(0)}';
+  String _formatDate(DateTime date) =>
+      '${date.day}/${date.month}/${date.year}';
 
   Color _getCategoryColor(String category) {
     switch (category) {
@@ -361,106 +394,22 @@ Future<void> _exportToCSV() async {
         return Icons.category;
     }
   }
+}
 
-  void _showExpenseDetails(BuildContext context, Expense expense) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 50,
-                  height: 5,
-                  margin: EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              Text(
-                expense.title,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text('Category: ${expense.category}'),
-              SizedBox(height: 8),
-              Text('Date: ${expense.formattedDate}'),
-              SizedBox(height: 8),
-              Text(
-                'Total: ${expense.formattedAmount}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red[600],
-                ),
-              ),
-              SizedBox(height: 8),
-              Text('Description: ${expense.description}'),
-              SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      showDialog(
-                        context: context,
-                        builder:
-                            (ctx) => EditExpenseScreen(
-                              expense: expense,
-                              categories: categories,
-                              onEdit: (updatedExpense) async {
-                                setState(() {
-                                  final index = expenses.indexWhere(
-                                    (e) => e.id == updatedExpense.id,
-                                  );
-                                  if (index != -1)
-                                    expenses[index] = updatedExpense;
-                                  _filterExpenses();
-                                });
-                                await StorageService.instance.saveExpenses(
-                                  expenses,
-                                );
-                              },
-                            ),
-                      );
-                    },
-                    icon: Icon(Icons.edit),
-                    label: Text('Edit',style: TextStyle(color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueGrey,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close),
-                    label: Text('Close',style: TextStyle(color: Colors.black12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+class ExpenseWithCategory {
+  final int id;
+  final String title;
+  final double amount;
+  final DateTime date;
+  final String description;
+  final String categoryName;
+
+  ExpenseWithCategory({
+    required this.id,
+    required this.title,
+    required this.amount,
+    required this.date,
+    required this.description,
+    required this.categoryName,
+  });
 }

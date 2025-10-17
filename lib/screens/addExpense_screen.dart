@@ -1,112 +1,121 @@
 import 'package:flutter/material.dart';
-import 'package:pemrograman_mobile/models/expense.dart';
+import 'package:provider/provider.dart';
+import '../services/database_service.dart';
+import '../services/auth.dart';
+import 'category_screen.dart';
 
 class AddExpenseScreen extends StatefulWidget {
-  final List<String> categories;
-
-  const AddExpenseScreen({Key? key, required this.categories}) : super(key: key);
+  const AddExpenseScreen({Key? key}) : super(key: key);
 
   @override
-  _AddExpenseScreenState createState() => _AddExpenseScreenState();
+  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
+  final AppDb database = AppDb();
   final _formKey = GlobalKey<FormState>();
-  final titleController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final amountController = TextEditingController();
 
-  String? selectedCategory;
+  final titleController = TextEditingController();
+  final amountController = TextEditingController();
+  final descriptionController = TextEditingController();
+
+  List<String> categories = [];
+  int? selectedCategoryIndex;
   DateTime selectedDate = DateTime.now();
+
+  bool isLoadingCategories = true;
+  bool isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    selectedCategory = widget.categories.isNotEmpty ? widget.categories.first : null;
+    // Inisialisasi kategori default lalu load kategori
+    database.initializeDefaultCategories().then((_) => _loadCategories());
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Add Expense')),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: titleController,
-                decoration: InputDecoration(labelText: 'Title'),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Please enter title' : null,
-              ),
-              SizedBox(height: 10),
+  Future<void> _loadCategories() async {
+    setState(() => isLoadingCategories = true);
+    try {
+      final data = await database.select(database.kategory).get();
+      setState(() {
+        categories = data.map((c) => c.categoryName).toList();
+        if (categories.isNotEmpty && selectedCategoryIndex == null) {
+          selectedCategoryIndex = 0;
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load categories: $e')),
+      );
+    } finally {
+      setState(() => isLoadingCategories = false);
+    }
+  }
 
-              DropdownButtonFormField<String>(
-                value: selectedCategory,
-                decoration: InputDecoration(labelText: 'Category'),
-                items: widget.categories.map((category) {
-                  return DropdownMenuItem(
-                    value: category,
-                    child: Text(category),
-                  );
-                }).toList(),
-                onChanged: (value) => setState(() => selectedCategory = value),
-              ),
-              SizedBox(height: 10),
+  Future<void> _insertExpense() async {
+    final auth = Provider.of<Auth>(context, listen: false);
+    final user = auth.currentUser;
 
-              TextFormField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: 'Amount'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) return 'Please enter amount';
-                  if (double.tryParse(value) == null) return 'Enter a valid number';
-                  return null;
-                },
-              ),
-              SizedBox(height: 10),
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not logged in')),
+      );
+      return;
+    }
 
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text('Date: ${selectedDate.toLocal().toString().split(' ')[0]}'),
-                trailing: Icon(Icons.calendar_today),
-                onTap: _pickDate,
-              ),
-              SizedBox(height: 10),
+    if (!_formKey.currentState!.validate() || selectedCategoryIndex == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete all fields')),
+      );
+      return;
+    }
 
-              TextFormField(
-                controller: descriptionController,
-                decoration: InputDecoration(labelText: 'Description'),
-                maxLines: 3,
-              ),
-              SizedBox(height: 20),
+    setState(() => isSaving = true);
 
-              ElevatedButton(
-                child: Text('Save',style: TextStyle(color: Colors.blueGrey)),
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    final newExpense = Expense(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      title: titleController.text,
-                      category: selectedCategory ?? '',
-                      amount: double.parse(amountController.text),
-                      date: selectedDate,
-                      description: descriptionController.text,
-                    );
-                    Navigator.pop(context, newExpense);
-                  }
-                },
-              ),
-            ],
-          ),
+    try {
+      final categoryName = categories[selectedCategoryIndex!];
+      final categoryList = await database.select(database.kategory).get();
+      final category = categoryList.firstWhere(
+        (c) => c.categoryName == categoryName,
+        orElse: () => throw Exception('Category not found'),
+      );
+
+      final amountText = amountController.text.trim();
+      final amount = int.tryParse(amountText);
+      if (amount == null) throw Exception('Amount must be a number');
+
+      final now = DateTime.now();
+      await database.into(database.expenseTable).insert(
+        expenseTableCompanion.insert(
+          title: titleController.text.trim(),
+          amount: amount,
+          categoryId: category.categoryId,
+          date: selectedDate,
+          description: descriptionController.text.trim().isEmpty
+              ? '-'
+              : descriptionController.text.trim(),
+          userId: int.parse(user.userId.toString()),
+
+          createdAt: now,
+          updatedAt: now,
         ),
-      ),
-    );
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Expense added successfully!')),
+      );
+
+      Navigator.pop(context, true);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save expense: $e')),
+      );
+    } finally {
+      setState(() => isSaving = false);
+    }
   }
 
-  void _pickDate() async {
+  Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: selectedDate,
@@ -114,5 +123,116 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       lastDate: DateTime.now(),
     );
     if (picked != null) setState(() => selectedDate = picked);
+  }
+
+  void _openCategoryScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CategoryScreen()),
+    );
+    if (result == true) {
+      await _loadCategories();
+      setState(() {
+        selectedCategoryIndex = categories.length - 1;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      appBar: AppBar(title: const Text('Add Expense')),
+      body: SafeArea(
+        child: isLoadingCategories
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: titleController,
+                        decoration: const InputDecoration(labelText: 'Title'),
+                        validator: (value) =>
+                            value == null || value.isEmpty ? 'Enter title' : null,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: amountController,
+                        decoration: const InputDecoration(labelText: 'Amount'),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Enter amount';
+                          if (int.tryParse(value) == null) return 'Invalid number';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<int>(
+                              value: selectedCategoryIndex,
+                              decoration:
+                                  const InputDecoration(labelText: 'Category'),
+                              items: categories.asMap().entries.map((entry) {
+                                return DropdownMenuItem(
+                                  value: entry.key,
+                                  child: Text(entry.value),
+                                );
+                              }).toList(),
+                              onChanged: (value) =>
+                                  setState(() => selectedCategoryIndex = value),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: _openCategoryScreen,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                            'Date: ${selectedDate.toLocal().toString().split(' ')[0]}'),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: _pickDate,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: descriptionController,
+                        decoration:
+                            const InputDecoration(labelText: 'Description'),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: isSaving ? null : _insertExpense,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueGrey,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: isSaving
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Save Expense',
+                                style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+    );
   }
 }
