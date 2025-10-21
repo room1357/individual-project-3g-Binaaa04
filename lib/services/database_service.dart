@@ -21,12 +21,29 @@ class AppDb extends _$AppDb {
 
   @override
   int get schemaVersion => 1;
+
+  // =====================
+  // USER FUNCTIONS
+  // =====================
+
+  // Insert user
   Future<int> insertUser(UserCompanion entry) => into(user).insert(entry);
+
+  // Ambil user berdasarkan username
   Future<Users?> getUserByUsername(String username) async {
-  return (select(user)
-        ..where((tbl) => tbl.username.equals(username)))
-      .getSingleOrNull();
-}
+    return (select(user)..where((tbl) => tbl.username.equals(username)))
+        .getSingleOrNull();
+  }
+
+  // Ambil user berdasarkan userId
+  Future<Users?> getUserById(int userId) async {
+    return (select(user)..where((tbl) => tbl.userId.equals(userId)))
+        .getSingleOrNull();
+  }
+
+  // =====================
+  // CATEGORY FUNCTIONS
+  // =====================
   Future<void> initializeDefaultCategories() async {
     final data = await select(kategory).get();
     if (data.isEmpty) {
@@ -49,10 +66,11 @@ class AppDb extends _$AppDb {
       }
     }
   }
-
 }
 
-// Fungsi koneksi database Drift
+// =====================
+// DATABASE CONNECTION
+// =====================
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();

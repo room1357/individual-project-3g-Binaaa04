@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/database_service.dart';
 import '../services/auth.dart';
+import '../utils/app_theme.dart';
 import 'category_screen.dart';
 
 class AddExpenseScreen extends StatefulWidget {
@@ -141,97 +142,278 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true,
-      appBar: AppBar(title: const Text('Add Expense')),
+      backgroundColor: const Color(0xFFf1f5f9),
+      appBar: AppBar(
+        title: const Text('Add Expense'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: const Color(0xFF1e293b),
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF667eea).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF667eea)),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: isLoadingCategories
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 24),
+                    _buildExpenseForm(),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF667eea).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: const Icon(
+              Icons.add_circle_rounded,
+              size: 36,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Add New Expense',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Track your spending easily',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpenseForm() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Expense Details',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: 'Title',
+                prefixIcon: Icon(Icons.title_rounded),
+                hintText: 'Enter expense title',
+              ),
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Enter title' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Amount',
+                prefixIcon: Icon(Icons.attach_money_rounded),
+                hintText: 'Enter amount',
+                prefixText: 'Rp ',
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Enter amount';
+                if (int.tryParse(value) == null) return 'Invalid number';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    value: selectedCategoryIndex,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      prefixIcon: Icon(Icons.category_rounded),
+                    ),
+                    items: categories.asMap().entries.map((entry) {
+                      return DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      );
+                    }).toList(),
+                    onChanged: (value) =>
+                        setState(() => selectedCategoryIndex = value),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.add_rounded, color: AppTheme.accentColor),
+                    onPressed: _openCategoryScreen,
+                    tooltip: 'Add Category',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
                 padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextFormField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: 'Title'),
-                        validator: (value) =>
-                            value == null || value.isEmpty ? 'Enter title' : null,
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: amountController,
-                        decoration: const InputDecoration(labelText: 'Amount'),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return 'Enter amount';
-                          if (int.tryParse(value) == null) return 'Invalid number';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today_rounded, color: AppTheme.textSecondary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: selectedCategoryIndex,
-                              decoration:
-                                  const InputDecoration(labelText: 'Category'),
-                              items: categories.asMap().entries.map((entry) {
-                                return DropdownMenuItem(
-                                  value: entry.key,
-                                  child: Text(entry.value),
-                                );
-                              }).toList(),
-                              onChanged: (value) =>
-                                  setState(() => selectedCategoryIndex = value),
+                          const Text(
+                            'Date',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.add),
-                            onPressed: _openCategoryScreen,
+                          Text(
+                            '${selectedDate.toLocal().toString().split(' ')[0]}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: AppTheme.textPrimary,
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                            'Date: ${selectedDate.toLocal().toString().split(' ')[0]}'),
-                        trailing: const Icon(Icons.calendar_today),
-                        onTap: _pickDate,
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: descriptionController,
-                        decoration:
-                            const InputDecoration(labelText: 'Description'),
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: isSaving ? null : _insertExpense,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueGrey,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: isSaving
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('Save Expense',
-                                style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.textSecondary),
+                  ],
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                prefixIcon: Icon(Icons.description_rounded),
+                hintText: 'Enter description (optional)',
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                onPressed: isSaving ? null : _insertExpense,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Save Expense',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

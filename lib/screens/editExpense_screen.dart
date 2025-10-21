@@ -1,182 +1,316 @@
 import 'package:flutter/material.dart';
-import 'package:pemrograman_mobile/screens/advancedExpenseList_screen.dart';
-import 'package:pemrograman_mobile/screens/category_screen.dart';
 import '../services/database_service.dart';
+import '../services/expense_manager.dart';
+import '../utils/app_theme.dart';
 
 class EditExpenseScreen extends StatefulWidget {
-  final Function(ExpenseWithCategory) onEdit;
   final ExpenseWithCategory expense;
+  final List<Kategori> categories;
+  final Function(ExpenseWithCategory) onEdit;
 
   const EditExpenseScreen({
-    super.key,
-    required this.onEdit,
+    Key? key,
     required this.expense,
-  });
+    required this.categories,
+    required this.onEdit,
+  }) : super(key: key);
 
   @override
   State<EditExpenseScreen> createState() => _EditExpenseScreenState();
 }
 
 class _EditExpenseScreenState extends State<EditExpenseScreen> {
-  final AppDb database = AppDb();
-
-  late TextEditingController _titleController;
-  late TextEditingController _amountController;
-  late TextEditingController _descController;
-  late String _selectedCategory;
-  late DateTime _selectedDate;
-
-  List<String> categories = [];
+  late TextEditingController titleController;
+  late TextEditingController amountController;
+  late TextEditingController descriptionController;
+  int? selectedCategoryIndex;
+  late DateTime selectedDate;
+  bool isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.expense.title);
-    _amountController =
-        TextEditingController(text: widget.expense.amount.toString());
-    _descController = TextEditingController(text: widget.expense.description);
-    _selectedCategory = widget.expense.categoryName;
-    _selectedDate = widget.expense.date;
-
-    _loadCategories();
+    titleController = TextEditingController(text: widget.expense.title);
+    amountController = TextEditingController(text: widget.expense.amount.toString());
+    descriptionController = TextEditingController(text: widget.expense.description);
+    selectedDate = widget.expense.date;
+    selectedCategoryIndex = widget.categories.indexWhere((c) => c.categoryName == widget.expense.categoryName);
+    if (selectedCategoryIndex == -1) selectedCategoryIndex = 0;
   }
 
-  Future<void> _loadCategories() async {
-    final data = await database.select(database.kategory).get();
-    setState(() {
-      categories = data.map((c) => c.categoryName).toList();
-
-      // Jika kategori expense yang diedit tidak ada (misal dihapus), tambahkan sementara
-      if (!categories.contains(_selectedCategory)) {
-        categories.insert(0, _selectedCategory);
-      }
-    });
+  @override
+  void dispose() {
+    titleController.dispose();
+    amountController.dispose();
+    descriptionController.dispose();
+    super.dispose();
   }
 
-  void _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) setState(() => _selectedDate = picked);
-  }
-
-  void _openCategoryScreen() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CategoryScreen()),
-    );
-
-    if (result == true) {
-      // Refresh kategori jika ada penambahan
-      await _loadCategories();
-      setState(() {
-        _selectedCategory = categories.last; // pilih kategori terbaru
-      });
-    }
-  }
-
-  Future<void> _saveExpense() async {
-    if (_titleController.text.isEmpty ||
-        _amountController.text.isEmpty ||
-        _selectedCategory.isEmpty) {
+  void _save() async {
+    if (titleController.text.trim().isEmpty || amountController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please complete all fields')),
+        const SnackBar(
+          content: Text('Please fill in all required fields'),
+          backgroundColor: AppTheme.errorColor,
+        ),
       );
       return;
     }
 
-    final updatedExpense = ExpenseWithCategory(
-      id: widget.expense.id,
-      title: _titleController.text.trim(),
-      amount: double.tryParse(_amountController.text.trim()) ?? 0,
-      date: _selectedDate,
-      description: _descController.text.trim(),
-      categoryName: _selectedCategory,
-    );
+    setState(() => isSaving = true);
 
-    widget.onEdit(updatedExpense);
-    Navigator.pop(context, true); // pop true supaya AdvancedExpenseList refresh
+    try {
+      final updated = ExpenseWithCategory(
+        expenseId: widget.expense.expenseId,
+        title: titleController.text.trim(),
+        amount: int.tryParse(amountController.text.trim()) ?? widget.expense.amount,
+        date: selectedDate,
+        description: descriptionController.text.trim(),
+        categoryName: widget.categories[selectedCategoryIndex!].categoryName,
+      );
+      
+      widget.onEdit(updated);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Expense updated successfully!'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating expense: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => selectedDate = picked);
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("Edit Expense"),
-      content: SingleChildScrollView(
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(labelText: "Title"),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _amountController,
-              decoration: const InputDecoration(labelText: "Amount"),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedCategory,
-                    decoration: const InputDecoration(labelText: "Category"),
-                    items: categories
-                        .map((cat) => DropdownMenuItem(
-                              value: cat,
-                              child: Text(cat),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => _selectedCategory = value);
-                    },
-                  ),
+            _buildHeader(),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildForm(),
+                    const SizedBox(height: 24),
+                    _buildActionButtons(),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: _openCategoryScreen,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _descController,
-              decoration: const InputDecoration(labelText: "Description"),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                      "Date: ${_selectedDate.toLocal().toString().split(' ')[0]}"),
-                ),
-                TextButton(
-                  onPressed: _pickDate,
-                  child: const Text(
-                    "Pick Date",
-                    style: TextStyle(color: Colors.blueGrey),
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel", style: TextStyle(color: Colors.blueGrey)),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGradient,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
         ),
-        ElevatedButton(
-          onPressed: _saveExpense,
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
-          child: const Text("Save", style: TextStyle(color: Colors.white)),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.edit_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Edit Expense',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: titleController,
+          decoration: const InputDecoration(
+            labelText: 'Title',
+            prefixIcon: Icon(Icons.title_rounded),
+            hintText: 'Enter expense title',
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: amountController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Amount',
+            prefixIcon: Icon(Icons.attach_money_rounded),
+            hintText: 'Enter amount',
+            prefixText: 'Rp ',
+          ),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<int>(
+          value: selectedCategoryIndex,
+          decoration: const InputDecoration(
+            labelText: 'Category',
+            prefixIcon: Icon(Icons.category_rounded),
+          ),
+          items: widget.categories.asMap().entries.map((entry) {
+            return DropdownMenuItem(
+              value: entry.key,
+              child: Text(entry.value.categoryName),
+            );
+          }).toList(),
+          onChanged: (value) => setState(() => selectedCategoryIndex = value),
+        ),
+        const SizedBox(height: 16),
+        InkWell(
+          onTap: _pickDate,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today_rounded, color: AppTheme.textSecondary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Date',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '${selectedDate.toLocal().toString().split(' ')[0]}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.textSecondary),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: descriptionController,
+          decoration: const InputDecoration(
+            labelText: 'Description',
+            prefixIcon: Icon(Icons.description_rounded),
+            hintText: 'Enter description (optional)',
+          ),
+          maxLines: 3,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: isSaving ? null : () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.grey[300]!),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: const Text('Cancel'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: isSaving ? null : _save,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: isSaving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Save Changes'),
+          ),
         ),
       ],
     );

@@ -1,71 +1,57 @@
-import '../models/expense.dart';
+import 'package:drift/drift.dart';
+import '../services/database_service.dart';
 
-class ExpenseManager {
-  static List<Expense> expenses = [/* data expenses */];
+class ExpenseWithCategory {
+  final int expenseId;
+  final String title;
+  final int amount;
+  final DateTime date;
+  final String description;
+  final String categoryName;
 
-  // Total per kategori
-  static Map<String, double> getTotalByCategory(List<Expense> expenses) {
-    Map<String, double> result = {};
-    for (var expense in expenses) {
-      result[expense.category] = (result[expense.category] ?? 0) + expense.amount;
-    }
-    return result;
+  ExpenseWithCategory({
+    required this.expenseId,
+    required this.title,
+    required this.amount,
+    required this.date,
+    required this.description,
+    required this.categoryName,
+  });
+}
+
+extension ExpenseManager on AppDb {
+  Future<List<ExpenseWithCategory>> getAllExpensesWithCategory() async {
+    final query = select(expenseTable).join([
+      leftOuterJoin(
+        kategory,
+        kategory.categoryId.equalsExp(expenseTable.categoryId),
+      ),
+    ]);
+
+    final rows = await query.get();
+
+    return rows.map((row) {
+      final expense = row.readTable(expenseTable);
+      final category = row.readTableOrNull(kategory);
+      return ExpenseWithCategory(
+        expenseId: expense.expenseId,
+        title: expense.title,
+        amount: expense.amount,
+        date: expense.date,
+        description: expense.description,
+        categoryName: category?.categoryName ?? "Uncategorized",
+      );
+    }).toList();
   }
 
-  // Pengeluaran paling besar
-  static Expense? getHighestExpense(List<Expense> expenses) {
-    if (expenses.isEmpty) return null;
-    return expenses.reduce((a, b) => a.amount > b.amount ? a : b);
+  Future<int> insertExpense(expenseTableCompanion entry) =>
+      into(expenseTable).insert(entry);
+
+  Future<void> deleteExpense(int id) async {
+    await (delete(expenseTable)..where((tbl) => tbl.expenseId.equals(id))).go();
   }
 
-  // Pengeluaran bulan tertentu
-  static List<Expense> getExpensesByMonth(List<Expense> expenses, int month, int year) {
-    return expenses.where((expense) => 
-      expense.date.month == month && expense.date.year == year
-    ).toList();
-  }
-
-  // Cari pengeluaran
-  static List<Expense> searchExpenses(List<Expense> expenses, String keyword) {
-    String lowerKeyword = keyword.toLowerCase();
-    return expenses.where((expense) =>
-      expense.title.toLowerCase().contains(lowerKeyword) ||
-      expense.description.toLowerCase().contains(lowerKeyword) ||
-      expense.category.toLowerCase().contains(lowerKeyword)
-    ).toList();
-  }
-
-  // Rata-rata harian
-  static double getAverageDaily(List<Expense> expenses) {
-    if (expenses.isEmpty) return 0;
-    
-    double total = expenses.fold(0, (sum, expense) => sum + expense.amount);
-    Set<String> uniqueDays = expenses.map((expense) => 
-      '${expense.date.year}-${expense.date.month}-${expense.date.day}'
-    ).toSet();
-    
-    return total / uniqueDays.length;
-  }
-
-  // Tambah data
-  static void addExpense(Expense expense) {
-    expenses.add(expense);
-  }
-
-  // Hapus data
-  static void removeExpense(Expense expense) {
-    expenses.remove(expense);
-  }
-
-  // Ubah data
-  static void updateExpense(int index, Expense newExpense) {
-    if (index >= 0 && index < expenses.length) {
-      expenses[index] = newExpense;
-    }
-  }
-
-  // Total semua pengeluaran
-  static double getTotalExpense(List<Expense> expenses) {
-    return expenses.fold(0, (sum, expense) => sum + expense.amount);
+  Future<void> updateExpense(expenseTableCompanion entry) async {
+    await update(expenseTable).replace(entry);
   }
 }

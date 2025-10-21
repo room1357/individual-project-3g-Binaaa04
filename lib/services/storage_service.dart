@@ -4,7 +4,7 @@ import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../models/expense.dart';
+import '../services/database_service.dart';
 
 class StorageService {
   // Singleton pattern
@@ -44,12 +44,12 @@ class StorageService {
 
     // Buat data CSV
     List<List<String>> rows = [
-      ['Title', 'Category', 'Amount', 'Date', 'Description'], // Header
+      ['Title', 'Category ID', 'Amount', 'Date', 'Description'], // Header
       ...expenses.map((e) => [
             e.title,
-            e.category,
+            e.categoryId.toString(),
             e.amount.toString(),
-            e.formattedDate,
+            e.date.toString(),
             e.description,
           ])
     ];
