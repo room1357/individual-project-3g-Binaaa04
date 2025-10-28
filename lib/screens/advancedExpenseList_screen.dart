@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:calendar_appbar/calendar_appbar.dart';
 import '../services/database_service.dart';
 import '../services/expense_manager.dart';
 import '../services/auth.dart';
@@ -31,6 +31,7 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
   DateTime selectedDate = DateTime.now();
   int _selectedIndex = 1;
   bool isLoading = true;
+  bool isFilteringByDate = false;
 
   @override
   void initState() {
@@ -100,7 +101,14 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
             expense.description.toLowerCase().contains(query);
         final matchesCategory =
             selectedCategory == 'All' || expense.categoryName == selectedCategory;
-        return matchesSearch && matchesCategory;
+        
+        // Check if filtering by date is enabled
+        final matchesDate = !isFilteringByDate || 
+            (expense.date.year == selectedDate.year &&
+             expense.date.month == selectedDate.month &&
+             expense.date.day == selectedDate.day);
+        
+        return matchesSearch && matchesCategory && matchesDate;
       }).toList();
     });
   }
@@ -179,11 +187,60 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
     );
   }
 
+  Widget _buildDateFilterChip() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: FilterChip(
+        avatar: Icon(
+          isFilteringByDate ? Icons.filter_alt : Icons.filter_alt_outlined,
+          size: 16,
+          color: isFilteringByDate ? Colors.white : AppTheme.primaryColor,
+        ),
+        label: Text(
+          isFilteringByDate ? 'Filtered by Date' : 'Filter by Date',
+          style: TextStyle(
+            color: isFilteringByDate ? Colors.white : AppTheme.textPrimary,
+            fontWeight: isFilteringByDate ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+        selected: isFilteringByDate,
+        onSelected: (selected) {
+          setState(() {
+            isFilteringByDate = selected;
+            _filterExpenses();
+          });
+        },
+        backgroundColor: Colors.white,
+        selectedColor: AppTheme.primaryColor,
+        checkmarkColor: Colors.white,
+        side: BorderSide(
+          color: isFilteringByDate ? AppTheme.primaryColor : Colors.grey[300]!,
+          width: 1,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       extendBody: true,
+      appBar: _selectedIndex == 1 ? CalendarAppBar(
+        locale: 'en',
+        onDateChanged: (value) {
+          setState(() {
+            selectedDate = value;
+            isFilteringByDate = true;
+            _filterExpenses();
+          });
+        },
+        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+        lastDate: DateTime.now(),
+      ) : null,
       body: _selectedIndex == 0
           ? Consumer<Auth>(
               builder: (context, auth, _) => StatisticsScreen(
@@ -198,7 +255,6 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildCalendarHeader(),
                           const SizedBox(height: 16),
                           _buildActionButtons(),
                           const SizedBox(height: 16),
@@ -262,105 +318,6 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildCalendarHeader() {
-    final dateFormat = DateFormat('EEEE, MMMM d, y');
-    final formattedDate = dateFormat.format(selectedDate);
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.calendar_today_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Selected Date',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  formattedDate,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: _pickDate,
-            icon: Icon(Icons.date_range_rounded, color: AppTheme.primaryColor),
-            tooltip: 'Pick a date',
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppTheme.primaryColor,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppTheme.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
-    }
   }
 
   Widget _buildActionButtons() {
@@ -442,6 +399,7 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
+          _buildDateFilterChip(),
           _buildCategoryChip('All'),
           ...categories.map((c) => _buildCategoryChip(c.categoryName)),
           Padding(
