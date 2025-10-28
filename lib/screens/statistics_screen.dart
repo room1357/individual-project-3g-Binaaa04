@@ -7,7 +7,8 @@ import '../services/expense_manager.dart';
 import '../utils/app_theme.dart';
 
 class StatisticsScreen extends StatefulWidget {
-  const StatisticsScreen({Key? key}) : super(key: key);
+  final int? userId;
+  const StatisticsScreen({Key? key, this.userId}) : super(key: key);
 
   @override
   _StatisticsScreenState createState() => _StatisticsScreenState();
@@ -25,7 +26,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Future<void> _loadExpenses() async {
-    final data = await db.getAllExpensesWithCategory();
+    // Load expenses filtered by userId if provided
+    final data = await db.getAllExpensesWithCategory(userId: widget.userId);
     setState(() {
       _expenses = data;
       _isLoading = false;
@@ -45,11 +47,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           Container(
             margin: const EdgeInsets.only(right: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFF667eea).withOpacity(0.1),
+              color: AppTheme.primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
-              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF667eea)),
+              icon: Icon(Icons.refresh_rounded, color: AppTheme.primaryColor),
               onPressed: _loadExpenses,
               tooltip: 'Refresh',
             ),
@@ -66,9 +68,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildSummaryCards(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       _buildCategoryChart(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       _buildDailyChart(),
                     ],
                   ),
@@ -99,15 +101,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: AppTheme.primaryGradient,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF667eea).withOpacity(0.3),
+                    color: AppTheme.primaryColor.withOpacity(0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -132,7 +130,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF667eea).withOpacity(0.1),
+                color: AppTheme.primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -325,11 +323,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           ),
           const SizedBox(height: 20),
           SizedBox(
-            height: 280,
+            height: 200,
             child: PieChart(
               PieChartData(
                 sections: sections,
-                centerSpaceRadius: 40,
+                centerSpaceRadius: 35,
                 sectionsSpace: 2,
               ),
             ),
@@ -442,7 +440,7 @@ Widget _buildDailyChart() {
           scrollDirection: Axis.horizontal,
           child: SizedBox(
             width: chartWidth,
-            height: 280,
+            height: 200,
             child: BarChart(
               BarChartData(
                 maxY: daily.values.isEmpty ? 0 : daily.values.reduce((a, b) => a > b ? a : b) * 1.2,

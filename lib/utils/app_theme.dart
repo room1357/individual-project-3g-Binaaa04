@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Color Palette
-  static const Color primaryColor = Color(0xFF2E7D32); // Green
-  static const Color primaryLight = Color(0xFF4CAF50);
-  static const Color primaryDark = Color(0xFF1B5E20);
-  static const Color secondaryColor = Color(0xFF1976D2); // Blue
-  static const Color accentColor = Color(0xFFFF9800); // Orange
-  static const Color errorColor = Color(0xFFD32F2F); // Red
-  static const Color warningColor = Color(0xFFF57C00); // Orange
-  static const Color successColor = Color(0xFF388E3C); // Green
+  // Color Palette - Track Your Money (Blue Theme)
+  static const Color primaryColor = Color(0xFF2196F3); // Blue primary (cerah)
+  static const Color primaryLight = Color(0xFF64B5F6); // Light blue
+  static const Color primaryDark = Color(0xFF1976D2); // Dark blue
+  static const Color secondaryColor = Color(0xFF42A5F5); // Medium blue
+  static const Color accentColor = Color(0xFFFFB74D); // Orange (warm accent)
+  static const Color errorColor = Color(0xFFE57373); // Soft red
+  static const Color warningColor = Color(0xFFFFA726); // Orange warning
+  static const Color successColor = Color(0xFF81C784); // Green success
   
   // Neutral Colors
   static const Color backgroundColor = Color(0xFFF5F5F5);
@@ -19,9 +19,15 @@ class AppTheme {
   static const Color textSecondary = Color(0xFF757575);
   static const Color textHint = Color(0xFFBDBDBD);
   
-  // Gradient Colors
+  // Gradient Colors - Blue Theme
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primaryColor, primaryLight],
+    colors: [Color(0xFF2196F3), Color(0xFF42A5F5)], // Blue gradient
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient secondaryGradient = LinearGradient(
+    colors: [Color(0xFF1976D2), Color(0xFF2196F3)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

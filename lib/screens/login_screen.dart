@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:pemrograman_mobile/screens/home_screen.dart';
 import 'package:pemrograman_mobile/screens/register_screen.dart';
 import '../services/auth.dart';
-// import '../utils/app_theme.dart';
+import '../utils/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -91,15 +91,11 @@ class _LoginScreenState extends State<LoginScreen> {
           width: 140,
           height: 140,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            gradient: AppTheme.primaryGradient, // Blue gradient
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF667eea).withOpacity(0.3),
+                color: AppTheme.primaryColor.withOpacity(0.3),
                 blurRadius: 30,
                 offset: const Offset(0, 15),
               ),
@@ -156,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF667eea).withOpacity(0.1),
+            color: AppTheme.primaryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -195,9 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                  ),
+                  gradient: AppTheme.primaryGradient,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -236,15 +230,11 @@ class _LoginScreenState extends State<LoginScreen> {
           Container(
             height: 56,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: AppTheme.primaryGradient,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF667eea).withOpacity(0.3),
+                  color: AppTheme.primaryColor.withOpacity(0.3),
                   blurRadius: 15,
                   offset: const Offset(0, 8),
                 ),
@@ -309,12 +299,12 @@ class _LoginScreenState extends State<LoginScreen> {
             margin: const EdgeInsets.all(12),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF667eea).withOpacity(0.1),
+              color: AppTheme.primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               icon,
-              color: const Color(0xFF667eea),
+              color: AppTheme.primaryColor,
               size: 20,
             ),
           ),
@@ -355,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Text(
               "Sign Up",
               style: TextStyle(
-                color: const Color(0xFF667eea),
+                color: AppTheme.primaryColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),

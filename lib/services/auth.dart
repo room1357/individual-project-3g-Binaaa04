@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:pemrograman_mobile/services/database_service.dart';
+import 'package:pemrograman_mobile/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Auth with ChangeNotifier {
   final AppDb _db = AppDb();
+  final ApiService _api = ApiService();
   Users? _currentUser;
   Users? get currentUser => _currentUser;
 
@@ -12,41 +14,62 @@ class Auth with ChangeNotifier {
 
   // Fungsi register user
   Future<String> registerUser(String fullname, String email, String username, String password) async {
-    final existingUser = await _db.getUserByUsername(username);
-    final now = DateTime.now();
+    try {
+      // Cek apakah username sudah ada via API
+      final existing = await _api.getUserByUsername(username);
+      if (existing != null) {
+        return 'Username is already in use';
+      }
 
-    if (existingUser != null) {
-      return 'Username is already in use';
+      // Create user via API
+      final result = await _api.createUser(
+        fullname: fullname,
+        email: email,
+        username: username,
+        password: password,
+      );
+
+      if (result == null) {
+        return 'Registration Failed';
+      }
+
+      return 'Successful Registration';
+    } catch (e) {
+      print('❌ Registration error: $e');
+      return 'Registration Failed';
     }
-
-    final user = UserCompanion.insert(
-      fullname: fullname,
-      email: email,
-      username: username,
-      password: password,
-      createdAt: now,
-      updatedAt: now,
-    );
-
-    await _db.insertUser(user);
-    return 'Successful Registration';
   }
 
   // Fungsi login user
   Future<String> loginUser(String username, String password) async {
-    final existingUser = await _db.getUserByUsername(username);
+    try {
+      final userData = await _api.getUserByUsername(username);
 
-    if (existingUser == null) return 'Username not found';
-    if (existingUser.password != password) return 'Incorrect password';
+      if (userData == null) return 'Username not found';
 
-    _currentUser = existingUser;
+      // Convert API response to Users object
+      _currentUser = Users(
+        userId: userData['userId'],
+        fullname: userData['fullname'],
+        email: userData['email'],
+        username: userData['username'],
+        password: userData['password'],
+        createdAt: DateTime.parse(userData['createdAt']),
+        updatedAt: DateTime.parse(userData['updatedAt']),
+      );
 
-    // Simpan userId di SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('userId', existingUser.userId);
+      if (_currentUser!.password != password) return 'Incorrect password';
 
-    notifyListeners();
-    return 'Success';
+      // Simpan userId di SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('userId', _currentUser!.userId);
+
+      notifyListeners();
+      return 'Success';
+    } catch (e) {
+      print('❌ Login error: $e');
+      return 'Login Failed';
+    }
   }
 
   // Fungsi logout user
@@ -65,10 +88,19 @@ class Auth with ChangeNotifier {
     final userId = prefs.getInt('userId');
     if (userId == null) return;
 
-    final user = await _db.getUserById(userId);
-    if (user != null) {
-      _currentUser = user;
-      notifyListeners();
-    }
+    final userData = await _api.getUserById(userId);
+    if (userData == null) return;
+
+    _currentUser = Users(
+      userId: userData['userId'],
+      fullname: userData['fullname'],
+      email: userData['email'],
+      username: userData['username'],
+      password: userData['password'],
+      createdAt: DateTime.parse(userData['createdAt']),
+      updatedAt: DateTime.parse(userData['updatedAt']),
+    );
+
+    notifyListeners();
   }
 }

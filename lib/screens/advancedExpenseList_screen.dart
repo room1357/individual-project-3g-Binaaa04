@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:calendar_appbar/calendar_appbar.dart';
+import 'package:intl/intl.dart';
 import '../services/database_service.dart';
 import '../services/expense_manager.dart';
 import '../services/auth.dart';
@@ -79,10 +79,8 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
     }
 
     final cats = await database.select(database.kategory).get();
-    final allExpenses = await database.getAllExpensesWithCategory();
-
-    // Filter by userId kalau perlu
-    final userExpenses = allExpenses.where((e) => true).toList();
+    // Pass userId to only get expenses for current user
+    final userExpenses = await database.getAllExpensesWithCategory(userId: user.userId);
 
     setState(() {
       categories = cats;
@@ -187,7 +185,11 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
       backgroundColor: AppTheme.backgroundColor,
       extendBody: true,
       body: _selectedIndex == 0
-          ? const StatisticsScreen()
+          ? Consumer<Auth>(
+              builder: (context, auth, _) => StatisticsScreen(
+                userId: auth.currentUser?.userId,
+              ),
+            )
           : SafeArea(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -263,6 +265,9 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
   }
 
   Widget _buildCalendarHeader() {
+    final dateFormat = DateFormat('EEEE, MMMM d, y');
+    final formattedDate = dateFormat.format(selectedDate);
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -274,15 +279,88 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
           ),
         ],
       ),
-      child: CalendarAppBar(
-        onDateChanged: (date) => setState(() => selectedDate = date),
-        firstDate: DateTime.now().subtract(const Duration(days: 140)),
-        lastDate: DateTime.now(),
-        selectedDate: selectedDate,
-        locale: 'en',
-        accent: AppTheme.primaryColor,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.calendar_today_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Selected Date',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  formattedDate,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _pickDate,
+            icon: Icon(Icons.date_range_rounded, color: AppTheme.primaryColor),
+            tooltip: 'Pick a date',
+          ),
+        ],
       ),
     );
+  }
+  
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppTheme.primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: AppTheme.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+      });
+    }
   }
 
   Widget _buildActionButtons() {
@@ -540,7 +618,7 @@ class _AdvancedExpenseListScreenState extends State<AdvancedExpenseListScreen> {
       case 'Utility':
         return Colors.orangeAccent;
       case 'Entertainment':
-        return Colors.green;
+        return Colors.teal; // Changed from green to teal (goes well with blue theme)
       case 'Self Care':
         return Colors.purple;
       default:

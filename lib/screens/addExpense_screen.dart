@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pemrograman_mobile/services/expense_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/database_service.dart';
 import '../services/auth.dart';
@@ -86,7 +87,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (amount == null) throw Exception('Amount must be a number');
 
       final now = DateTime.now();
-      await database.into(database.expenseTable).insert(
+      
+      // Insert using API instead of local database
+      await database.insertExpense(
         expenseTableCompanion.insert(
           title: titleController.text.trim(),
           amount: amount,
@@ -95,8 +98,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           description: descriptionController.text.trim().isEmpty
               ? '-'
               : descriptionController.text.trim(),
-          userId: int.parse(user.userId.toString()),
-
+          userId: user.userId,
           createdAt: now,
           updatedAt: now,
         ),
@@ -151,12 +153,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         leading: Container(
           margin: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF667eea).withOpacity(0.1),
+            color: AppTheme.primaryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF667eea)),
+            icon: Icon(Icons.arrow_back_rounded, color: AppTheme.primaryColor),
           ),
         ),
       ),
@@ -181,15 +183,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildHeader() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: AppTheme.primaryGradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF667eea).withOpacity(0.3),
+            color: AppTheme.primaryColor.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),

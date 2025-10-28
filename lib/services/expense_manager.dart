@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import '../services/database_service.dart';
+import '../services/api_service.dart';
 
 class ExpenseWithCategory {
   final int expenseId;
@@ -20,38 +21,58 @@ class ExpenseWithCategory {
 }
 
 extension ExpenseManager on AppDb {
-  Future<List<ExpenseWithCategory>> getAllExpensesWithCategory() async {
-    final query = select(expenseTable).join([
-      leftOuterJoin(
-        kategory,
-        kategory.categoryId.equalsExp(expenseTable.categoryId),
-      ),
-    ]);
+  ApiService get _api => ApiService();
 
-    final rows = await query.get();
-
-    return rows.map((row) {
-      final expense = row.readTable(expenseTable);
-      final category = row.readTableOrNull(kategory);
-      return ExpenseWithCategory(
-        expenseId: expense.expenseId,
-        title: expense.title,
-        amount: expense.amount,
-        date: expense.date,
-        description: expense.description,
-        categoryName: category?.categoryName ?? "Uncategorized",
-      );
-    }).toList();
+  Future<List<ExpenseWithCategory>> getAllExpensesWithCategory({int? userId}) async {
+    List<Map<String, dynamic>> expenses;
+    
+    // Get expenses - filtered by userId if provided
+    if (userId != null) {
+      expenses = await _api.getExpensesByUserId(userId);
+    } else {
+      expenses = await _api.getExpenses();
+    }
+    
+    final categories = await _api.getCategories();
+    
+    // Create map for category lookup
+    final categoryMap = {for (var c in categories) c['categoryId']: c};
+    
+    return expenses.map((e) => ExpenseWithCategory(
+      expenseId: e['expenseId'],
+      title: e['title'],
+      amount: e['amount'],
+      date: DateTime.parse(e['date']),
+      description: e['description'],
+      categoryName: categoryMap[e['categoryId']]?['categoryName'] ?? "Uncategorized",
+    )).toList();
   }
 
-  Future<int> insertExpense(expenseTableCompanion entry) =>
-      into(expenseTable).insert(entry);
+  Future<int> insertExpense(expenseTableCompanion entry) async {
+    final result = await _api.createExpense(
+      userId: entry.userId.value,
+      title: entry.title.value,
+      categoryId: entry.categoryId.value,
+      amount: entry.amount.value,
+      date: entry.date.value,
+      description: entry.description.value,
+    );
+    return result?['expenseId'] ?? 0;
+  }
 
   Future<void> deleteExpense(int id) async {
-    await (delete(expenseTable)..where((tbl) => tbl.expenseId.equals(id))).go();
+    await _api.deleteExpense(id);
   }
 
   Future<void> updateExpense(expenseTableCompanion entry) async {
-    await update(expenseTable).replace(entry);
+    await _api.updateExpense(
+      expenseId: entry.expenseId.value,
+      userId: entry.userId.value,
+      title: entry.title.value,
+      categoryId: entry.categoryId.value,
+      amount: entry.amount.value,
+      date: entry.date.value,
+      description: entry.description.value,
+    );
   }
 }

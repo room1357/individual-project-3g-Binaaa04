@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pemrograman_mobile/screens/home_screen.dart';
 import 'package:pemrograman_mobile/screens/login_screen.dart';
@@ -9,6 +10,7 @@ import 'package:provider/provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize default categories via API
   final db = AppDb();
   await db.initializeDefaultCategories();
 
@@ -33,7 +35,7 @@ class MyApp extends StatelessWidget {
       builder: (ctx, auth, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Track Your Cash, Master Your Life',
+          title: 'Track Your Money',
           theme: AppTheme.lightTheme,
           home: auth.isAuth
               ? HomeScreen(username: auth.currentUser!.username)
@@ -41,48 +43,7 @@ class MyApp extends StatelessWidget {
                   future: auth.tryAutoLogin(),
                   builder: (ctx, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Scaffold(
-                        backgroundColor: AppTheme.backgroundColor,
-                        body: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  gradient: AppTheme.primaryGradient,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppTheme.primaryColor.withOpacity(0.3),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.account_balance_wallet_rounded,
-                                  size: 40,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              const CircularProgressIndicator(
-                                color: AppTheme.primaryColor,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Loading...',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
+                      return _SplashScreen();
                     } else {
                       return const LoginScreen();
                     }
@@ -90,6 +51,101 @@ class MyApp extends StatelessWidget {
                 ),
         );
       },
+    );
+  }
+}
+
+class _SplashScreen extends StatefulWidget {
+  @override
+  State<_SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<_SplashScreen> {
+  double _progress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _simulateLoading();
+  }
+
+  void _simulateLoading() {
+    Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      setState(() {
+        _progress += 0.01;
+        if (_progress >= 1.0) {
+          _progress = 1.0;
+          timer.cancel();
+        }
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.primaryColor, // Background biru
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Logo dengan ukuran yang cukup besar
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.account_balance_wallet_rounded,
+                      size: 60,
+                      color: AppTheme.primaryColor,
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 48),
+            // Loading indicator dengan persentase
+            SizedBox(
+              width: 200,
+              child: Column(
+                children: [
+                  CircularProgressIndicator(
+                    value: _progress,
+                    backgroundColor: Colors.white.withOpacity(0.3),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                    strokeWidth: 4,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '${(_progress * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
